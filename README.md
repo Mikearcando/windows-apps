@@ -6,6 +6,28 @@ De server beheert een share met MSI-bestanden en een JSON-manifest. De client dr
 
 Zie [INSTALL.md](INSTALL.md) voor de volledige stap-voor-stap installatiehandleiding.
 
+## Snelstart met Setup.ps1
+
+Eén script dat alles automatisch instelt — detecteert instellingen, stelt vragen waar nodig en configureert alles:
+
+**Op de server (als administrator):**
+
+```powershell
+.\scripts\Setup.ps1
+# Kies [1] Server
+```
+
+**Op elke client (als administrator):**
+
+```powershell
+.\scripts\Setup.ps1
+# Kies [2] Client
+```
+
+Het script detecteert automatisch: domeinnaam, beste schijf voor de share, computernaam voor het UNC-pad, en of de share al bereikbaar is.
+
+---
+
 ## Structuur
 
 ```text
@@ -15,6 +37,7 @@ config/
   server.example.json                 Voorbeeld serverconfiguratie (dashboard)
   manifest.example.json               Voorbeeld applicatiemanifest
 scripts/
+  Setup.ps1                           Interactieve setup voor server en client
   Pre-Check.ps1                       Controleert of alle instellingen correct zijn
   New-AppDeploymentManifest.ps1       Scant de share op MSI's en genereert apps.json
   AppDeploymentAgent.ps1              Deployment agent (draait op clients als scheduled task)
