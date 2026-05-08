@@ -4,21 +4,25 @@ WinAppDeploy is een lichte Windows app deployment basis voor MSI-installaties va
 
 De server beheert een share met MSI-bestanden en een JSON-manifest. De client draait een PowerShell-agent als geplande taak, leest het manifest, controleert wat al geïnstalleerd is en installeert ontbrekende of nieuwere MSI-pakketten stil met `msiexec`. Een webdashboard op de server geeft realtime inzicht in de status van alle clients en laat je pakketten, manifest en instellingen volledig beheren.
 
+Zie [INSTALL.md](INSTALL.md) voor de volledige stap-voor-stap installatiehandleiding.
+
 ## Structuur
 
 ```text
+INSTALL.md                            Stap-voor-stap installatiehandleiding
 config/
-  client.example.json           Voorbeeld clientconfiguratie
-  server.example.json           Voorbeeld serverconfiguratie (dashboard)
-  manifest.example.json         Voorbeeld applicatiemanifest
+  client.example.json                 Voorbeeld clientconfiguratie
+  server.example.json                 Voorbeeld serverconfiguratie (dashboard)
+  manifest.example.json               Voorbeeld applicatiemanifest
 scripts/
-  New-AppDeploymentManifest.ps1     Scant de share op MSI's en genereert apps.json
-  AppDeploymentAgent.ps1            Deployment agent (draait op clients als scheduled task)
-  Install-AppDeploymentAgent.ps1    Installeert de agent op een client
-  Uninstall-AppDeploymentAgent.ps1  Verwijdert de agent van een client
-  Start-DeploymentDashboard.ps1     Webdashboard (handmatig starten of via service)
-  Install-DashboardService.ps1      Installeert het dashboard als autostart Windows service
-  Uninstall-DashboardService.ps1    Verwijdert de dashboardservice
+  Pre-Check.ps1                       Controleert of alle instellingen correct zijn
+  New-AppDeploymentManifest.ps1       Scant de share op MSI's en genereert apps.json
+  AppDeploymentAgent.ps1              Deployment agent (draait op clients als scheduled task)
+  Install-AppDeploymentAgent.ps1      Installeert de agent op een client
+  Uninstall-AppDeploymentAgent.ps1    Verwijdert de agent van een client
+  Start-DeploymentDashboard.ps1       Webdashboard (handmatig starten of via service)
+  Install-DashboardService.ps1        Installeert het dashboard als autostart Windows service
+  Uninstall-DashboardService.ps1      Verwijdert de dashboardservice
 ```
 
 ---
