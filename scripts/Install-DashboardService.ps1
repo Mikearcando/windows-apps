@@ -45,7 +45,7 @@ $settings = New-ScheduledTaskSettingsSet `
     -ExecutionTimeLimit ([timespan]::Zero) `
     -RestartCount 5 `
     -RestartInterval (New-TimeSpan -Minutes 2) `
-    -StartWhenAvailable $true `
+    -StartWhenAvailable `
     -MultipleInstances IgnoreNew
 $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 

@@ -342,7 +342,7 @@ if ($Role -eq "Client" -or $Role -eq "Beide") {
     } else {
         Write-Warn "Geen SharePath bekend" `
             "Sharecontroles worden overgeslagen." `
-            "Voer opnieuw uit met: .\Pre-Check.ps1 -SharePath '\\SERVER\AppDeployment' -Role Client"
+            "Voer opnieuw uit met: .\Pre-Check.ps1 -SharePath \\SERVER\AppDeployment -Role Client"
     }
 }
 
