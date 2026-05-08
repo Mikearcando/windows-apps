@@ -1,0 +1,10 @@
+{
+  "SharePath": "\\\\SERVER\\AppDeployment",
+  "ManifestFile": "apps.json",
+  "DefaultMsiArguments": "/qn /norestart",
+  "CachePath": "C:\\ProgramData\\AppDeployment\\Cache",
+  "LogPath": "C:\\ProgramData\\AppDeployment\\Logs",
+  "CopyToCache": true,
+  "AllowDowngrade": false,
+  "SuccessExitCodes": [0, 3010, 1641]
+}
