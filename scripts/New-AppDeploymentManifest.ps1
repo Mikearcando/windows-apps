@@ -95,7 +95,7 @@ function Get-MsiProperty {
             return $null
         }
 
-        return $record.StringData(1)
+        return [string]$record.StringData(1)
     }
     finally {
         if ($null -ne $view) {
