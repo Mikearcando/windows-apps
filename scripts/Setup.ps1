@@ -45,7 +45,8 @@ function Read-Input {
     $hint = if ($Default) { " [$Default]" } else { "" }
     Write-Host "  > $Prompt$hint : " -ForegroundColor Cyan -NoNewline
     $val = Read-Host
-    return if ([string]::IsNullOrWhiteSpace($val)) { $Default } else { $val.Trim() }
+    if ([string]::IsNullOrWhiteSpace($val)) { return $Default }
+    return $val.Trim()
 }
 
 function Confirm-Action {
