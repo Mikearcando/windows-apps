@@ -113,11 +113,53 @@ function Save-ServerConfig {
     $parsed | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $ConfigPath -Encoding UTF8
 }
 
-function Invoke-ManifestRegenerate {
+function Invoke-ManifestRegenerateWithDiff {
+    param([switch]$DisabledByDefault)
+
     $scriptFile = Join-Path $scriptsDir "New-AppDeploymentManifest.ps1"
     if (-not (Test-Path -LiteralPath $scriptFile)) { throw "Script niet gevonden: $scriptFile" }
-    $output = & $scriptFile -SharePath $SharePath 2>&1 | Out-String
-    return $output.Trim()
+
+    # Snapshot voor de run
+    $before = @{}
+    if (Test-Path -LiteralPath $manifestPath) {
+        try {
+            foreach ($p in @((Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json).packages)) {
+                if ($p.source) { $before[$p.source] = $p.version }
+            }
+        } catch {}
+    }
+
+    # Genereer manifest
+    $output = if ($DisabledByDefault) {
+        & $scriptFile -SharePath $SharePath -DisabledByDefault 2>&1 | Out-String
+    } else {
+        & $scriptFile -SharePath $SharePath 2>&1 | Out-String
+    }
+
+    # Snapshot na de run + diff berekenen
+    $packages = @()
+    if (Test-Path -LiteralPath $manifestPath) {
+        foreach ($p in @((Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json).packages)) {
+            $isNew     = -not $before.ContainsKey($p.source)
+            $isUpdated = -not $isNew -and $before[$p.source] -ne $p.version
+            $packages += [ordered]@{
+                name      = $p.name
+                version   = $p.version
+                source    = $p.source
+                isNew     = $isNew
+                isUpdated = $isUpdated
+            }
+        }
+    }
+
+    return [ordered]@{
+        success  = $true
+        output   = $output.Trim()
+        total    = $packages.Count
+        added    = @($packages | Where-Object { $_.isNew }).Count
+        updated  = @($packages | Where-Object { $_.isUpdated }).Count
+        packages = $packages
+    }
 }
 
 # ── HTML dashboard ────────────────────────────────────────────────────────────
@@ -186,6 +228,26 @@ input:checked+.sl::before{transform:translateX(16px)}
 .info-box{background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;padding:.75rem 1rem;font-size:.78rem;color:#1e40af;margin:.75rem 1.25rem}
 .toast{position:fixed;bottom:1.25rem;right:1.25rem;color:#fff;padding:.55rem 1.1rem;border-radius:7px;font-size:.78rem;font-weight:500;opacity:0;transition:opacity .22s;pointer-events:none;z-index:999}
 .toast.show{opacity:1}.t-ok{background:#15803d}.t-err{background:#dc2626}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:1100;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.overlay.show{opacity:1;pointer-events:all}
+.modal{background:#fff;border-radius:10px;width:540px;max-width:92vw;max-height:82vh;display:flex;flex-direction:column;box-shadow:0 20px 48px rgba(0,0,0,.25)}
+.modal-hd{padding:.875rem 1.25rem;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between}
+.modal-hd h3{font-size:.95rem;font-weight:600}
+.modal-bd{padding:1.1rem 1.25rem;overflow-y:auto;flex:1}
+.modal-ft{padding:.7rem 1.25rem;border-top:1px solid #f1f5f9;display:flex;justify-content:flex-end}
+.rg-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem;margin-bottom:1rem}
+.rg-stat{text-align:center;background:#f8fafc;border-radius:8px;padding:.7rem .5rem}
+.rg-v{font-size:1.75rem;font-weight:800;line-height:1}.rg-l{font-size:.68rem;color:#64748b;margin-top:3px}
+.rg-v.blue{color:#3b82f6}.rg-v.green{color:#22c55e}.rg-v.amber{color:#f59e0b}
+.pkg-diff{border:1px solid #f1f5f9;border-radius:7px;overflow:hidden;margin-bottom:.75rem}
+.pd-row{display:flex;align-items:center;justify-content:space-between;padding:.45rem .9rem;border-bottom:1px solid #f8fafc;font-size:.8rem}
+.pd-row:last-child{border-bottom:none}
+.pd-name{font-weight:500}.pd-ver{font-size:.7rem;color:#94a3b8;font-family:Consolas,monospace;margin-left:.4rem}
+.nb{background:#dcfce7;color:#15803d;font-size:.62rem;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:0}
+.ub{background:#fef9c3;color:#854d0e;font-size:.62rem;font-weight:700;padding:1px 6px;border-radius:999px;flex-shrink:0}
+.rg-log{background:#0f172a;color:#94a3b8;font-family:Consolas,monospace;font-size:.7rem;padding:.6rem .8rem;border-radius:6px;white-space:pre-wrap;word-break:break-all}
+.opt-row{display:flex;align-items:center;gap:.4rem;font-size:.75rem;color:#64748b;cursor:pointer;padding:.2rem 0}
+.opt-row input{cursor:pointer}
 @keyframes spin{to{transform:rotate(360deg)}}
 .spin{display:inline-block;animation:spin .7s linear infinite}
 .pkg-name{font-weight:600}.pkg-src{font-size:.68rem;color:#94a3b8;font-family:Consolas,monospace;margin-top:1px}
@@ -237,6 +299,7 @@ input:checked+.sl::before{transform:translateX(16px)}
       <h2>&#128230; Pakketten</h2>
       <div class="acts">
         <button class="btn bsec" onclick="loadManifest()">&#8635; Vernieuwen</button>
+        <label class="opt-row"><input type="checkbox" id="chk-disabled">Nieuw uitschakelen</label>
         <button class="btn bsec" id="btn-regen" onclick="doRegen()">&#9660; Opnieuw genereren</button>
         <button class="btn bsuc" id="btn-save" onclick="doSave()" disabled>&#10003; Opslaan</button>
       </div>
@@ -287,6 +350,18 @@ input:checked+.sl::before{transform:translateX(16px)}
 </div>
 
 </main>
+<div class="overlay" id="regen-overlay">
+  <div class="modal">
+    <div class="modal-hd">
+      <h3>&#9660; Manifest gegenereerd</h3>
+      <button class="btn bsec" style="padding:.25rem .5rem;font-size:.8rem" onclick="closeModal()">&#10005;</button>
+    </div>
+    <div class="modal-bd" id="regen-body"></div>
+    <div class="modal-ft">
+      <button class="btn bsuc" onclick="closeModal()">&#10003; Sluiten</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <script>
 var M=null,dirty=false,CL=[];
@@ -399,11 +474,36 @@ async function doSave(){
 
 async function doRegen(){
   var btn=document.getElementById('btn-regen');btn.disabled=true;btn.innerHTML='<span class="spin">&#8635;</span> Bezig...';
+  var disabled=document.getElementById('chk-disabled').checked;
   try{
-    var r=await fetch('/api/regenerate',{method:'POST'});var j=await r.json();
-    if(j.success){toast('Manifest opnieuw gegenereerd');await loadManifest();}else toast('Fout: '+j.message,'t-err');
+    var r=await fetch('/api/regenerate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({disabledByDefault:disabled})});
+    var j=await r.json();
+    if(j.success){showRegenModal(j);await loadManifest();}
+    else toast('Fout: '+j.message,'t-err');
   }catch(e){toast('Fout: '+e.message,'t-err');}
   finally{btn.disabled=false;btn.innerHTML='&#9660; Opnieuw genereren';}
+}
+
+function showRegenModal(j){
+  var total=j.total||0,added=j.added||0,updated=j.updated||0,unchanged=total-added-updated;
+  var rows=(j.packages||[]).map(function(p){
+    var badge=p.isNew?'<span class="nb">NIEUW</span>':p.isUpdated?'<span class="ub">BIJGEWERKT</span>':'';
+    return '<div class="pd-row"><span><span class="pd-name">'+esc(p.name||p.source)+'</span>'
+      +(p.version?'<span class="pd-ver">v'+esc(p.version)+'</span>':'')+'</span>'+badge+'</div>';
+  }).join('');
+  var html='<div class="rg-stats">'
+    +'<div class="rg-stat"><div class="rg-v blue">'+total+'</div><div class="rg-l">Totaal</div></div>'
+    +'<div class="rg-stat"><div class="rg-v green">'+added+'</div><div class="rg-l">Nieuw</div></div>'
+    +'<div class="rg-stat"><div class="rg-v amber">'+updated+'</div><div class="rg-l">Bijgewerkt</div></div>'
+    +'</div>';
+  if(rows)html+='<div class="pkg-diff">'+rows+'</div>';
+  if(j.output)html+='<div class="rg-log">'+esc(j.output)+'</div>';
+  document.getElementById('regen-body').innerHTML=html;
+  document.getElementById('regen-overlay').classList.add('show');
+}
+
+function closeModal(){
+  document.getElementById('regen-overlay').classList.remove('show');
 }
 
 // ── Logs ──────────────────────────────────────────────────────────────────────
@@ -511,8 +611,19 @@ try {
             }
             elseif ($method -eq "POST" -and $path -eq "/api/regenerate") {
                 try {
-                    $out = Invoke-ManifestRegenerate
-                    Send-Response -Response $res -Body (@{ success = $true; message = $out } | ConvertTo-Json -Compress)
+                    $disabledByDefault = $false
+                    try {
+                        $reqBody = (New-Object System.IO.StreamReader($req.InputStream, [System.Text.Encoding]::UTF8)).ReadToEnd()
+                        if ($reqBody) { $disabledByDefault = [bool]($reqBody | ConvertFrom-Json).disabledByDefault }
+                    } catch {}
+
+                    $diff = Invoke-ManifestRegenerateWithDiff -DisabledByDefault:$disabledByDefault
+                    $jsonParts = $diff.packages | ForEach-Object { $_ | ConvertTo-Json -Compress }
+                    $pkgJson = '[' + ($jsonParts -join ',') + ']'
+                    $body = '{"success":true,"output":' + ($diff.output | ConvertTo-Json) +
+                            ',"total":' + $diff.total + ',"added":' + $diff.added +
+                            ',"updated":' + $diff.updated + ',"packages":' + $pkgJson + '}'
+                    Send-Response -Response $res -Body $body
                 } catch {
                     Send-Response -Response $res -Body (@{ success = $false; message = $_.Exception.Message } | ConvertTo-Json -Compress)
                 }
