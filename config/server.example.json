@@ -1,0 +1,6 @@
+{
+  "SharePath": "\\\\SERVER\\AppDeployment",
+  "ManifestFile": "apps.json",
+  "LogPath": "C:\\ProgramData\\AppDeployment\\Logs",
+  "Port": 8080
+}
