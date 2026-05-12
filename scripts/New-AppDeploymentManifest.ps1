@@ -161,47 +161,54 @@ catch {
     throw "Kan Windows Installer COM-object niet starten. Draai dit script op Windows met Windows Installer beschikbaar. Fout: $($_.Exception.Message)"
 }
 
-$seenIds = @{}
-$packages = @()
+$seenIds  = @{}
+$packages = [System.Collections.Generic.List[object]]::new()
 $msiFiles = Get-ChildItem -LiteralPath $resolvedSharePath -Recurse -Filter "*.msi" -File | Sort-Object FullName
 
-foreach ($file in $msiFiles) {
-    $relativeSource = Get-RelativePath -BasePath $resolvedSharePath -TargetPath $file.FullName
-    $existingPackage = $existingBySource[$relativeSource]
+try {
+    foreach ($file in $msiFiles) {
+        $relativeSource = Get-RelativePath -BasePath $resolvedSharePath -TargetPath $file.FullName
+        $existingPackage = $existingBySource[$relativeSource]
 
-    try {
-        $metadata = Get-MsiMetadata -Path $file.FullName -Installer $installer
-    }
-    catch {
-        Write-Warning "Kan MSI metadata niet lezen voor '$($file.FullName)': $($_.Exception.Message)"
-        $metadata = [pscustomobject]@{
-            ProductName    = $file.BaseName
-            ProductVersion = $null
-            ProductCode    = $null
-            UpgradeCode    = $null
+        try {
+            $metadata = Get-MsiMetadata -Path $file.FullName -Installer $installer
         }
-    }
+        catch {
+            Write-Warning "Kan MSI metadata niet lezen voor '$($file.FullName)': $($_.Exception.Message)"
+            $metadata = [pscustomobject]@{
+                ProductName    = $file.BaseName
+                ProductVersion = $null
+                ProductCode    = $null
+                UpgradeCode    = $null
+            }
+        }
 
-    $name = Get-ObjectValue -Object $metadata -Name "ProductName" -Default $file.BaseName
-    $existingId = Get-ObjectValue -Object $existingPackage -Name "id"
-    $id = if ([string]::IsNullOrWhiteSpace($existingId)) {
-        Get-SafePackageId -Name $name -SeenIds $seenIds
-    }
-    else {
-        $seenIds[$existingId] = $true
-        $existingId
-    }
+        $name = Get-ObjectValue -Object $metadata -Name "ProductName" -Default $file.BaseName
+        $existingId = Get-ObjectValue -Object $existingPackage -Name "id"
+        $id = if ([string]::IsNullOrWhiteSpace($existingId)) {
+            Get-SafePackageId -Name $name -SeenIds $seenIds
+        }
+        else {
+            $seenIds[$existingId] = $true
+            $existingId
+        }
 
-    $packages += [ordered]@{
-        id          = $id
-        name        = $name
-        version     = Get-ObjectValue -Object $metadata -Name "ProductVersion"
-        productCode = Get-ObjectValue -Object $metadata -Name "ProductCode"
-        upgradeCode = Get-ObjectValue -Object $metadata -Name "UpgradeCode"
-        source      = $relativeSource
-        arguments   = Get-ObjectValue -Object $existingPackage -Name "arguments" -Default $DefaultArguments
-        enabled     = [bool](Get-ObjectValue -Object $existingPackage -Name "enabled" -Default (-not $DisabledByDefault.IsPresent))
-        required    = [bool](Get-ObjectValue -Object $existingPackage -Name "required" -Default $true)
+        $packages.Add([ordered]@{
+            id          = $id
+            name        = $name
+            version     = Get-ObjectValue -Object $metadata -Name "ProductVersion"
+            productCode = Get-ObjectValue -Object $metadata -Name "ProductCode"
+            upgradeCode = Get-ObjectValue -Object $metadata -Name "UpgradeCode"
+            source      = $relativeSource
+            arguments   = Get-ObjectValue -Object $existingPackage -Name "arguments" -Default $DefaultArguments
+            enabled     = [bool](Get-ObjectValue -Object $existingPackage -Name "enabled" -Default (-not $DisabledByDefault.IsPresent))
+            required    = [bool](Get-ObjectValue -Object $existingPackage -Name "required" -Default $true)
+        })
+    }
+}
+finally {
+    if ($null -ne $installer) {
+        [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($installer)
     }
 }
 
@@ -219,7 +226,3 @@ if (-not [string]::IsNullOrWhiteSpace($outputDirectory)) {
 
 $manifest | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $OutputPath -Encoding UTF8
 Write-Host "Manifest geschreven: $OutputPath ($($packages.Count) package(s))"
-
-if ($null -ne $installer) {
-    [void][System.Runtime.InteropServices.Marshal]::ReleaseComObject($installer)
-}

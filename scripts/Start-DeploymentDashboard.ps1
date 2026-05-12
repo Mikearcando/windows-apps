@@ -159,8 +159,8 @@ function Invoke-ManifestRegenerateWithDiff { param([switch]$DisabledByDefault)
     if (Test-Path -LiteralPath $manifestPath) {
         try { foreach ($p in @((Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json).packages)) { if ($p.source) { $before[$p.source] = $p.version } } } catch {}
     }
-    $output = if ($DisabledByDefault) { & $sf -SharePath $SharePath -DisabledByDefault 2>&1 | Out-String }
-              else                    { & $sf -SharePath $SharePath 2>&1 | Out-String }
+    $output = if ($DisabledByDefault) { powershell.exe -NonInteractive -ExecutionPolicy Bypass -File $sf -SharePath $SharePath -DisabledByDefault 2>&1 | Out-String }
+              else                    { powershell.exe -NonInteractive -ExecutionPolicy Bypass -File $sf -SharePath $SharePath 2>&1 | Out-String }
     $packages = @()
     if (Test-Path -LiteralPath $manifestPath) {
         foreach ($p in @((Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json).packages)) {

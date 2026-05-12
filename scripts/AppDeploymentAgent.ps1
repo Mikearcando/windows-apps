@@ -44,11 +44,11 @@ function ConvertTo-VersionOrNull {
     $parsedVersion = $null
     if ([version]::TryParse($Version, [ref]$parsedVersion)) { return $parsedVersion }
 
-    $matches = [regex]::Matches($Version, "\d+")
-    if ($matches.Count -eq 0) { return $null }
+    $digitMatches = [regex]::Matches($Version, "\d+")
+    if ($digitMatches.Count -eq 0) { return $null }
 
     $parts = @()
-    foreach ($match in $matches) {
+    foreach ($match in $digitMatches) {
         $parts += [int]$match.Value
         if ($parts.Count -eq 4) { break }
     }
